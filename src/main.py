@@ -50,13 +50,14 @@ def find_pronouns(sentence):
 
     return pronouns
 
+
 # takes sentence with referential tags as input, returns pronouns and their start indices in the sentence where referential tags are removed
 def find_all_pronouns_in_sentence(sentence):
     pronouns = []
     soup = BeautifulSoup(sentence, features="html.parser")
     for elem in soup.findAll("referential"):
         pronoun = elem.renderContents().decode("utf-8")
-        print(pronoun)
+        #print(pronoun)
         pronouns.append(pronoun)
 
     proper_sentence = convert_to_proper_sentence(sentence)
@@ -64,8 +65,8 @@ def find_all_pronouns_in_sentence(sentence):
     pronouns_with_indices = []
     for pronoun_index in range(len(pronouns)):
         searched_pronoun = ' ' + pronouns[pronoun_index]
-        found_index = find_nth(proper_sentence, searched_pronoun, pronoun_index+1)
-        pronouns_with_indices.append([pronouns[pronoun_index],found_index])
+        found_index = find_nth(proper_sentence, searched_pronoun, pronoun_index + 1)
+        pronouns_with_indices.append([pronouns[pronoun_index], found_index+1])
 
     return np.array(pronouns_with_indices)
 
@@ -78,7 +79,46 @@ def convert_to_proper_sentence(sentence):
 
     return str(soup)
 
+
+# takes sentence with referential tags removed, returns word and its start indices
 def get_words_with_start_indices(sentence):
+    doc = nlp(sentence)
+    words_with_tags = [(w.text, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
+
+    #x = [token.orth_ for token in tokens if not token.is_punct | token.is_space]
+
+    words_with_start_indices = []
+    for w in doc:
+        if not w.is_punct | w.is_space:
+            escaped = w.text.translate(str.maketrans({"-": r"\-",
+                                                        "]": r"\]",
+                                                        "[": r"\[",
+                                                        "\\": r"\\",
+                                                        "^": r"\^",
+                                                        "$": r"\$",
+                                                        "*": r"\*",
+                                                        ".": r"\.",
+                                                        "(": r"\(",
+                                                        ")": r"\)",
+                                                      }))
+
+            search_regex = r"\b{0}\b".format(escaped)
+
+            #word_with_start_indices = [m.start(0) for m in re.finditer('\b'+w.text+'\b', sentence)]
+            word_with_start_indices = [m.start(0) for m in re.finditer(search_regex, sentence)]
+            words_with_start_indices.append([[w.text, int(start_index)] for start_index in word_with_start_indices])
+
+    final_words_with_start_indices = []
+    for elem in words_with_start_indices:
+        for item in elem:
+            if not item in final_words_with_start_indices:
+                final_words_with_start_indices.append(item)
+
+    # regex =
+    # urls = [(m.start(0), m.end(0)) for m in re.finditer(regex, document)]
+    final_words_with_start_indices = np.array(final_words_with_start_indices)
+    final_words_with_start_indices = final_words_with_start_indices[final_words_with_start_indices[:, 1].astype('int').argsort()]
+    return final_words_with_start_indices
 
 
 # takes sentence with referential tags removed, returns plurality of each word (singular 0, plural 1)
@@ -97,6 +137,7 @@ def get_plurality_of_words_in_sentence(sentence):
     # print(is_plural)
 
     return np.array(is_plural)
+
 
 # takes sentence with referential tags removed, returns pos tags of each word
 def get_pos_tags_of_words_in_sentence(sentence):
@@ -157,7 +198,6 @@ def generate_two_word_pairs2(sentence, pronouns):
     pos_vector = [i[1] for i in words_with_tags]
 
     return np.array(pos_vector)
-
 
 
 def remove_referential_tags_from_sentence(sentence):
@@ -251,15 +291,30 @@ if __name__ == '__main__':
     # df_['NUMERIC'] = LE.fit_transform(all_pos_tags_serie)
     # print(df_)
 
-    proper_sentence = convert_to_proper_sentence(sentence3)
-    print(get_pos_tags_of_words_in_sentence(proper_sentence))
-    print(len(get_pos_tags_of_words_in_sentence(proper_sentence)))
-    print(get_plurality_of_words_in_sentence(proper_sentence))
-    print(len(get_plurality_of_words_in_sentence(proper_sentence)))
-    # print(list(nlp.tokenizer.vocab.morphology.tag_map.keys()))
-    all_pos_tags = list(nlp.tokenizer.vocab.morphology.tag_map.keys())
+    # proper_sentence = convert_to_proper_sentence(sentence3)
+    # print(get_pos_tags_of_words_in_sentence(proper_sentence))
+    # print(len(get_pos_tags_of_words_in_sentence(proper_sentence)))
+    # print(get_plurality_of_words_in_sentence(proper_sentence))
+    # print(len(get_plurality_of_words_in_sentence(proper_sentence)))
+    # # print(list(nlp.tokenizer.vocab.morphology.tag_map.keys()))
+    # all_pos_tags = list(nlp.tokenizer.vocab.morphology.tag_map.keys())
+    #
+    # proper_sentence2 = convert_to_proper_sentence(sentence2)
+    # print(proper_sentence2)
+    # print(find_nth(proper_sentence2, ' it', 0))
+    # print(find_all_pronouns_in_sentence(sentence3))
 
-    proper_sentence2 = convert_to_proper_sentence(sentence2)
-    print(proper_sentence2)
-    print(find_nth(proper_sentence2, ' it', 0))
-    print(find_all_pronouns_in_sentence(sentence3))
+    #sentence4 = "<referential>It</referential> may also receive a report request from Access and provides descriptive information for a specific AIP."
+    #proper_sentence4 = convert_to_proper_sentence(sentence4)
+
+    tokenizer = nlp.Defaults.create_tokenizer(nlp)
+    data = pd.read_excel(file_name3)
+
+    data = data.to_numpy()
+    data = data[:, 1]
+    for sentence in data:
+        print(sentence)
+        proper_sentence = convert_to_proper_sentence(sentence)
+        print(get_words_with_start_indices(proper_sentence))
+        print(find_all_pronouns_in_sentence(sentence))
+
