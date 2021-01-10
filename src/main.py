@@ -254,7 +254,15 @@ def combine_dataframes(sentence):
     df = df.join(get_plurality_of_words_in_sentence(proper_sentence))
 
 
+
     return df
+
+
+def calculate_feature_vector(pronoun_df,candidate_df):
+    return
+
+    #df.loc[(df['WORD'] == 'it') & (df['START_INDEX'] == '57')]
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
@@ -349,6 +357,12 @@ if __name__ == '__main__':
         print(sentence)
         result = combine_dataframes(sentence)
         print(result)
+
+        candidate = res = result.iloc[[0]]
+        pronoun = res = result.iloc[[8]]
+        calculate_feature_vector(candidate,pronoun)
+        print(res)
+        #print(find_all_pronouns_in_sentence(sentence))
         #proper_sentence = convert_to_proper_sentence(sentence)
         #print(get_words_with_start_indices(proper_sentence))
         ##print(len(get_words_with_start_indices(proper_sentence)))
