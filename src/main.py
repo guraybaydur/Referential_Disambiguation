@@ -368,8 +368,7 @@ if __name__ == '__main__':
 
             result.append([data2[index][1], data[index]])
 
-            if proper_sentence.find("or", 0, len(proper_sentence)) != -1 or proper_sentence.find("and", 0, len(
-                    proper_sentence)) != -1:
+            if proper_sentence.find("and", 0, len(proper_sentence)) != -1: #or proper_sentence.find("and", 0, len(proper_sentence)) != -1:
                 or_and_counts_ambigous += 1
         else:
             sentence = data[index]
@@ -391,7 +390,8 @@ if __name__ == '__main__':
 
             result.append([data2[index][1], data[index]])
 
-            if proper_sentence.find("or",0,len(proper_sentence)) != -1 or proper_sentence.find("and",0,len(proper_sentence)) != -1:
+            if proper_sentence.find("and",0,len(proper_sentence)) != -1:
+                    #or proper_sentence.find("and",0,len(proper_sentence)) != -1:
                 or_and_counts_unambigous += 1
 
     print("average ratio of ambigous: " + str(sum_of_ambigous/64))
