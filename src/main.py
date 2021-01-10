@@ -84,10 +84,12 @@ def convert_to_proper_sentence(sentence):
 
 # takes sentence with referential tags removed, returns word and its start indices
 def get_words_with_start_indices(sentence):
+
     doc = nlp(sentence)
-    words_with_tags = [(w.text, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
+    #words_with_tags = [(w.text, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
 
     #x = [token.orth_ for token in tokens if not token.is_punct | token.is_space]
+
 
     words_with_start_indices = []
     for w in doc:
@@ -237,6 +239,8 @@ def rule_based_ambiguity_detection(sentence):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     nlp = en_core_web_sm.load()
+    merge_nps = nlp.create_pipe("merge_noun_chunks")
+    nlp.add_pipe(merge_nps)
     '''
         tokenizer = nlp.Defaults.create_tokenizer(nlp)
         data = pd.read_excel(file_name3)
@@ -316,18 +320,23 @@ if __name__ == '__main__':
     #sentence4 = "<referential>It</referential> may also receive a report request from Access and provides descriptive information for a specific AIP."
     #proper_sentence4 = convert_to_proper_sentence(sentence4)
 
-    tokenizer = nlp.Defaults.create_tokenizer(nlp)
+    #tokenizer = nlp.Defaults.create_tokenizer(nlp)
     data = pd.read_excel(file_name3)
 
     data = data.to_numpy()
     data = data[:, 1]
-    # for sentence in data:
-    #     print(sentence)
-    #     proper_sentence = convert_to_proper_sentence(sentence)
-    #     print(get_words_with_start_indices(proper_sentence))
-    #     print(find_all_pronouns_in_sentence(sentence))
-    #     get_pos_tags_of_words_in_sentence(proper_sentence)
+    for sentence in data:
+        print(sentence)
+        proper_sentence = convert_to_proper_sentence(sentence)
+        print(get_words_with_start_indices(proper_sentence))
+        print(find_all_pronouns_in_sentence(sentence))
+        get_pos_tags_of_words_in_sentence(proper_sentence)
 
+
+
+
+################# ATTEMPT TO DETECT DISAMBIGUITY START ####################################
+    '''
     test = "Only <referential>They</referential> shall display and allow modification of all database tables with the exception of log tables."
     proper_test = convert_to_proper_sentence(test)
     print(rule_based_ambiguity_detection(proper_test))
@@ -400,6 +409,8 @@ if __name__ == '__main__':
     print("or_and_counts_ambigous: " + str(or_and_counts_ambigous))
     print("or_and_counts_unambigous:  " + str(or_and_counts_unambigous))
 
+    '''
+################# ATTEMPT TO DETECT DISAMBIGUITY END ####################################
 
     #print(np.array(result))
     #print(len(result))
