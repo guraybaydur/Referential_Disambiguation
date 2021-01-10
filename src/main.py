@@ -138,6 +138,9 @@ def get_plurality_of_words_in_sentence(sentence):
         if 'NNS' in tag:
             is_plural.append(1)
             # print(word + " is plural")
+        elif 'PRP' in tag:
+            if word in ['they','them','theirs','their']:
+                is_plural.append(1)
         else:
             is_plural.append(0)
 
@@ -153,12 +156,12 @@ def get_plurality_of_words_in_sentence(sentence):
 def get_pos_tags_of_words_in_sentence(sentence):
     doc = nlp(sentence)
     # sentence = [token.orth_ for token in tokens if not token.is_punct | token.is_space]
-    words_with_tags = [(w.text, w.tag_, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
+    words_with_tags = [(w.text, w.tag_, index,w.dep_) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
 
-    pos_vector = [i[1] for i in words_with_tags]
+    pos_vector = [[i[1],i[3]] for i in words_with_tags]
     pos_vector = np.array(pos_vector)
 
-    df = pd.DataFrame(data=pos_vector, columns=['POS_TAG'])
+    df = pd.DataFrame(data=pos_vector, columns=['POS_TAG','DEP'])
     return df
 
 
@@ -259,7 +262,12 @@ def combine_dataframes(sentence):
 
 
 def calculate_feature_vector(pronoun_df,candidate_df):
-    return
+    print(pronoun_df)
+    x1_both_plural = (pronoun_df.iloc[0]['IS_PLURAL'] == candidate_df.iloc[0]['IS_PLURAL'])
+    x2_both_same_tag = (pronoun_df.iloc[0]['DEP'] == candidate_df.iloc[0]['DEP'])
+    x3_closeness =  abs(int(pronoun_df.iloc[0]['START_INDEX']) - int(candidate_df.iloc[0]['START_INDEX']))
+
+    return ""
 
     #df.loc[(df['WORD'] == 'it') & (df['START_INDEX'] == '57')]
 
