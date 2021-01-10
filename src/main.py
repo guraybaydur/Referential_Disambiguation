@@ -256,8 +256,8 @@ if __name__ == '__main__':
             result = generate_two_word_pairs(sentence, pronouns)
     '''
 
-    sentence2 = "Init this case, the security device alerts the driver if the link has failed or if <referential id=a>it</referential> is cancelled."
-    sentence3 = 'This function receives an AIP request that identifies the requested AIP(s) and provides <referential id=a">them</referential> on the requested media type or transfers <referential id="b">them</referential> to a staging area."'
+    #sentence2 = "Init this case, the security device alerts the driver if the link has failed or if <referential id=a>it</referential> is cancelled."
+    #sentence3 = 'This function receives an AIP request that identifies the requested AIP(s) and provides <referential id=a">them</referential> on the requested media type or transfers <referential id="b">them</referential> to a staging area."'
     # soup = BeautifulSoup(sentence3, features="html.parser")
 
     # for referential in soup.select('referential'):
