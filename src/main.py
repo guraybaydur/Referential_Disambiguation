@@ -8,12 +8,21 @@ import re
 from bs4 import BeautifulSoup
 import numpy as np
 import pandas as pd
+import inflect
+import pyinflect
+import spacy
 import en_core_web_sm
+import datetime
+from sklearn.preprocessing import LabelEncoder
+
+from spacy.tokenizer import Tokenizer
+from spacy.lang.en import English
 
 file_name = "./datasets/training_set.csv"
 file_name2 = "./datasets/test.csv"
 file_name3 = "./datasets/training_set.xlsx"
 file_name4 = "./datasets/detection_answers_file.xlsx"
+
 
 # Construction 2
 from spacy.lang.en import English
@@ -50,7 +59,7 @@ def find_all_pronouns_in_sentence(sentence):
     soup = BeautifulSoup(sentence, features="html.parser")
     for elem in soup.findAll("referential"):
         pronoun = elem.renderContents().decode("utf-8")
-        # print(pronoun)
+        #print(pronoun)
         pronouns.append(pronoun)
 
     proper_sentence = convert_to_proper_sentence(sentence)
@@ -59,10 +68,12 @@ def find_all_pronouns_in_sentence(sentence):
     for pronoun_index in range(len(pronouns)):
         searched_pronoun = ' ' + pronouns[pronoun_index]
         found_index = find_nth(proper_sentence, searched_pronoun, pronoun_index + 1)
-        pronouns_with_indices.append([pronouns[pronoun_index], found_index + 1])
+        pronouns_with_indices.append([pronouns[pronoun_index], found_index+1])
 
-    return np.array(pronouns_with_indices)
+    pronouns_with_indices = np.array(pronouns_with_indices)
 
+    df = pd.DataFrame(data=pronouns_with_indices, columns=['WORD', 'START_INDEX'])
+    return df
 
 # # takes sentence with referential tags as input, returns sentence without referential tags
 def convert_to_proper_sentence(sentence):
@@ -77,23 +88,24 @@ def convert_to_proper_sentence(sentence):
 # takes sentence with referential tags removed, returns word and its start indices
 def get_words_with_start_indices(sentence):
     doc = nlp(sentence)
-    words_with_tags = [(w.text, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
+    #words_with_tags = [(w.text, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
 
-    # x = [token.orth_ for token in tokens if not token.is_punct | token.is_space]
+    #x = [token.orth_ for token in tokens if not token.is_punct | token.is_space]
+
 
     words_with_start_indices = []
     for w in doc:
         if not w.is_punct | w.is_space:
             escaped = w.text.translate(str.maketrans({"-": r"\-",
-                                                      "]": r"\]",
-                                                      "[": r"\[",
-                                                      "\\": r"\\",
-                                                      "^": r"\^",
-                                                      "$": r"\$",
-                                                      "*": r"\*",
-                                                      ".": r"\.",
-                                                      "(": r"\(",
-                                                      ")": r"\)",
+                                                        "]": r"\]",
+                                                        "[": r"\[",
+                                                        "\\": r"\\",
+                                                        "^": r"\^",
+                                                        "$": r"\$",
+                                                        "*": r"\*",
+                                                        ".": r"\.",
+                                                        "(": r"\(",
+                                                        ")": r"\)",
                                                       }))
 
             search_regex = r"\b{0}\b".format(escaped)
@@ -108,10 +120,11 @@ def get_words_with_start_indices(sentence):
                 final_words_with_start_indices.append(item)
 
     final_words_with_start_indices = np.array(final_words_with_start_indices)
-    final_words_with_start_indices = final_words_with_start_indices[
-        final_words_with_start_indices[:, 1].astype('int').argsort()]
+    final_words_with_start_indices = final_words_with_start_indices[final_words_with_start_indices[:, 1].astype('int').argsort()]
 
-    return final_words_with_start_indices
+    df = pd.DataFrame(data=final_words_with_start_indices,columns=['WORD','START_INDEX'])
+    #print(df)
+    return df
 
 
 # takes sentence with referential tags removed, returns plurality of each word (singular 0, plural 1)
@@ -123,24 +136,31 @@ def get_plurality_of_words_in_sentence(sentence):
         if 'NNS' in tag:
             is_plural.append(1)
             # print(word + " is plural")
+        elif 'PRP' in tag:
+            if word in ['they','them','theirs','their']:
+                is_plural.append(1)
         else:
             is_plural.append(0)
 
     # print(words_with_tags[:,0])
     # print(is_plural)
+    is_plural = np.array(is_plural)
 
-    return np.array(is_plural)
+    df = pd.DataFrame(data=is_plural, columns=['IS_PLURAL'])
+    return df
 
 
 # takes sentence with referential tags removed, returns pos tags of each word
 def get_pos_tags_of_words_in_sentence(sentence):
     doc = nlp(sentence)
     # sentence = [token.orth_ for token in tokens if not token.is_punct | token.is_space]
-    words_with_tags = [(w.text, w.tag_, index) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
+    words_with_tags = [(w.text, w.tag_, index,w.dep_) for index, w in enumerate(doc) if not w.is_punct | w.is_space]
 
-    pos_vector = [i[1] for i in words_with_tags]
+    pos_vector = [[i[1],i[3]] for i in words_with_tags]
+    pos_vector = np.array(pos_vector)
 
-    return np.array(pos_vector)
+    df = pd.DataFrame(data=pos_vector, columns=['POS_TAG','DEP'])
+    return df
 
 
 def generate_two_word_pairs(sentence, pronouns):
@@ -218,6 +238,7 @@ def find_nth(haystack, needle, n):
     return start
 
 
+
 def rule_based_ambiguity_detection(sentence):
     doc = nlp(sentence)
     words_with_tags = [(w.text, w.tag_, index) for index, w in enumerate(doc)]
@@ -226,10 +247,34 @@ def rule_based_ambiguity_detection(sentence):
 
     return words_with_tags
 
+def combine_dataframes(sentence):
+    proper_sentence = convert_to_proper_sentence(sentence)
+
+    df = get_words_with_start_indices(proper_sentence)
+    df = df.join(get_pos_tags_of_words_in_sentence(proper_sentence))
+    df = df.join(get_plurality_of_words_in_sentence(proper_sentence))
+
+
+
+    return df
+
+
+def calculate_feature_vector(pronoun_df,candidate_df):
+    print(pronoun_df)
+    x1_both_plural = (pronoun_df.iloc[0]['IS_PLURAL'] == candidate_df.iloc[0]['IS_PLURAL'])
+    x2_both_same_tag = (pronoun_df.iloc[0]['DEP'] == candidate_df.iloc[0]['DEP'])
+    x3_closeness =  abs(int(pronoun_df.iloc[0]['START_INDEX']) - int(candidate_df.iloc[0]['START_INDEX']))
+
+    return ""
+
+    #df.loc[(df['WORD'] == 'it') & (df['START_INDEX'] == '57')]
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     nlp = en_core_web_sm.load()
+    merge_nps = nlp.create_pipe("merge_noun_chunks")
+    nlp.add_pipe(merge_nps)
     '''
         tokenizer = nlp.Defaults.create_tokenizer(nlp)
         data = pd.read_excel(file_name3)
@@ -258,8 +303,8 @@ if __name__ == '__main__':
             result = generate_two_word_pairs(sentence, pronouns)
     '''
 
-    # sentence2 = "Init this case, the security device alerts the driver if the link has failed or if <referential id=a>it</referential> is cancelled."
-    # sentence3 = 'This function receives an AIP request that identifies the requested AIP(s) and provides <referential id=a">them</referential> on the requested media type or transfers <referential id="b">them</referential> to a staging area."'
+    #sentence2 = "Init this case, the security device alerts the driver if the link has failed or if <referential id=a>it</referential> is cancelled."
+    #sentence3 = 'This function receives an AIP request that identifies the requested AIP(s) and provides <referential id=a">them</referential> on the requested media type or transfers <referential id="b">them</referential> to a staging area."'
     # soup = BeautifulSoup(sentence3, features="html.parser")
 
     # for referential in soup.select('referential'):
@@ -306,29 +351,47 @@ if __name__ == '__main__':
     # print(find_nth(proper_sentence2, ' it', 0))
     # print(find_all_pronouns_in_sentence(sentence3))
 
-    # sentence4 = "<referential>It</referential> may also receive a report request from Access and provides descriptive information for a specific AIP."
-    # proper_sentence4 = convert_to_proper_sentence(sentence4)
+    #sentence4 = "<referential>It</referential> may also receive a report request from Access and provides descriptive information for a specific AIP."
+    #proper_sentence4 = convert_to_proper_sentence(sentence4)
 
-    tokenizer = nlp.Defaults.create_tokenizer(nlp)
+    #tokenizer = nlp.Defaults.create_tokenizer(nlp)
     data = pd.read_excel(file_name3)
 
     data = data.to_numpy()
     data = data[:, 1]
-    # for sentence in data:
-    #     print(sentence)
-    #     proper_sentence = convert_to_proper_sentence(sentence)
-    #     print(get_words_with_start_indices(proper_sentence))
-    #     print(find_all_pronouns_in_sentence(sentence))
-    #     get_pos_tags_of_words_in_sentence(proper_sentence)
+    for sentence in data:
+        print(sentence)
+        result = combine_dataframes(sentence)
+        print(result)
 
+        candidate = res = result.iloc[[0]]
+        pronoun = res = result.iloc[[8]]
+        calculate_feature_vector(candidate,pronoun)
+        print(res)
+        #print(find_all_pronouns_in_sentence(sentence))
+        #proper_sentence = convert_to_proper_sentence(sentence)
+        #print(get_words_with_start_indices(proper_sentence))
+        ##print(len(get_words_with_start_indices(proper_sentence)))
+        #print(find_all_pronouns_in_sentence(sentence))
+        ##print(len(find_all_pronouns_in_sentence(sentence)))
+        #print(get_pos_tags_of_words_in_sentence(proper_sentence))
+        ##print(len(get_pos_tags_of_words_in_sentence(proper_sentence)))
+        #print(get_plurality_of_words_in_sentence(proper_sentence))
+
+
+
+
+################# ATTEMPT TO DETECT DISAMBIGUITY START ####################################
+    '''
     test = "Only <referential>They</referential> shall display and allow modification of all database tables with the exception of log tables."
     proper_test = convert_to_proper_sentence(test)
     print(rule_based_ambiguity_detection(proper_test))
 
+
     data2 = pd.read_excel(file_name4)
     data2 = data2.to_numpy()
-    # print(data2)
-    # print(data)
+    #print(data2)
+    #print(data)
 
     result = []
     sum_of_ambigous = 0
@@ -342,10 +405,11 @@ if __name__ == '__main__':
     for index in range(len(data)):
 
         if data2[index][1] == "AMBIGUOUS":
+
             sentence = data[index]
             proper_sentence = convert_to_proper_sentence(sentence)
             pronoun_count = len(find_all_pronouns_in_sentence(sentence))
-            doc = nlp(proper_sentence)
+            doc = nlp(sentence)
             noun_count = 0
             pronounList = []
             pronounIndexList = []
@@ -378,19 +442,19 @@ if __name__ == '__main__':
             stringToken.clear()
 
             for token in doc.noun_chunks:
-                    noun_count += 1
-                # print(proper_sentence)
-                # print('noun_count: ' +  str(noun_count))
-                # print('pronoun_count: ' +  str(pronoun_count))
+                noun_count+=1
+            #print(proper_sentence)
+            #print('noun_count: ' +  str(noun_count))
+            #print('pronoun_count: ' +  str(pronoun_count))
 
-            ratio = pronoun_count / noun_count
+            ratio = pronoun_count/noun_count
+
             sum_of_ambigous += ratio
-            # print(ratio)
+            #print(ratio)
 
             result.append([data2[index][1], data[index]])
 
-            if proper_sentence.find("and", 0, len(
-                    proper_sentence)) != -1:  # or proper_sentence.find("and", 0, len(proper_sentence)) != -1:
+            if proper_sentence.find("and", 0, len(proper_sentence)) != -1: #or proper_sentence.find("and", 0, len(proper_sentence)) != -1:
                 or_and_counts_ambigous += 1
         else:
             sentence = data[index]
@@ -441,12 +505,12 @@ if __name__ == '__main__':
 
             result.append([data2[index][1], data[index]])
 
-            if proper_sentence.find("and", 0, len(proper_sentence)) != -1:
-                # or proper_sentence.find("and",0,len(proper_sentence)) != -1:
+            if proper_sentence.find("and",0,len(proper_sentence)) != -1:
+                    #or proper_sentence.find("and",0,len(proper_sentence)) != -1:
                 or_and_counts_unambigous += 1
 
-    print("average ratio of ambigous: " + str(sum_of_ambigous / 64))
-    print("average ratio of unambigous: " + str(sum_of_unambigous / 66))
+    print("average ratio of ambigous: " + str(sum_of_ambigous/64))
+    print("average ratio of unambigous: " + str(sum_of_unambigous/66))
 
     print("or_and_counts_ambigous: " + str(or_and_counts_ambigous))
     print("or_and_counts_unambigous:  " + str(or_and_counts_unambigous))
